@@ -17,49 +17,49 @@ if (process.env.HTTP_PROXY) {
 //////////////////////////////////////////////////////////////////////////////////////////
 
 router.get('/vpcs', function(req, res) {
-  collect_regions("describeVpcs", {}, function(err, data) {
+  collect_regions("describeVpcs", {}, "Vpcs", function(err, data) {
     if (err) return console.error(err);
     res.send(data);
   });
 });
 
 router.get('/external_ips', function(req, res) {
-  collect_regions("describeAddresses", {}, function(err, data) {
+  collect_regions("describeAddresses", {}, "Addresses", function(err, data) {
     if (err) return console.error(err);
     res.send(data);
   });
 });
 
 router.get('/instances', function(req, res) {
-  collect_regions("describeInstances", {}, function(err, data) {
+  collect_regions("describeInstances", {}, "Reservations", function(err, data) {
     if (err) return console.error(err);
     res.send(data);
   });
 });
 
 router.get('/instances/:inst_ids', function(req, res) {
-  collect_regions("describeInstances", {InstanceIds: req.params.inst_ids.split(',')}, function(err, data) {
+  collect_regions("describeInstances", {InstanceIds: req.params.inst_ids.split(',')}, "Reservations", function(err, data) {
     if (err) return console.error(err);
     res.send(data);
   });
 });
 
 router.get('/security_groups', function(req, res) {
-  collect_regions("describeSecurityGroups", {}, function(err, data) {
+  collect_regions("describeSecurityGroups", {}, "SecurityGroups", function(err, data) {
     if (err) return console.error(err);
     res.send(data);
   });
 });
 
 router.get('/security_groups/:group_id', function(req, res) {
-  collect_regions("describeSecurityGroups", {GroupIds: [req.params.group_id]}, function(err, data) {
+  collect_regions("describeSecurityGroups", {GroupIds: [req.params.group_id]}, "SecurityGroups", function(err, data) {
     if (err) return console.error(err);
     res.send(data);
   });
 });
 
 router.get('/subnets', function(req, res) {
-  collect_regions("describeSubnets", {}, function(err, data) {
+  collect_regions("describeSubnets", {}, "Subnets", function(err, data) {
     if (err) return console.error(err);
     res.send(data);
   });
@@ -68,7 +68,7 @@ router.get('/subnets', function(req, res) {
 
 module.exports = router;
 
-function collect_regions(action, params, callback) {
+function collect_regions(action, params, subelement, callback) {
   async.map(settings.regions, function(region, cb) {
     var ec2 = new AWS.EC2({
       region: region,
@@ -86,5 +86,13 @@ function collect_regions(action, params, callback) {
       data.Region = region;
       cb(null, data);
     });
-  }, callback);  
+  }, function(err, data) {
+      if (err) return callback(err);
+      callback(null, _.flatten(_.map(data, function(region) {
+        return _.map(subelement ? region[subelement] : region, function(item) {
+          item.Region = region.Region;
+          return item;
+        });
+      })));
+  });
 }
